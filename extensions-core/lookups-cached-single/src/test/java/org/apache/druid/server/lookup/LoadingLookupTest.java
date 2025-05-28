@@ -19,6 +19,7 @@
 
 package org.apache.druid.server.lookup;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -29,10 +30,10 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -96,6 +97,39 @@ public class LoadingLookupTest extends InitializedNullHandlingTest
     EasyMock.replay(lookupCache, dataFetcher);
     Assert.assertEquals(loadingLookup.apply("key"), "value");
     Assert.assertEquals(loadingLookup.apply("key"), "value");
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAll()
+  {
+    EasyMock.expect(lookupCache.getIfPresent(EasyMock.eq("key1"))).andReturn("value1").once();
+    EasyMock.expect(lookupCache.getIfPresent(EasyMock.eq("key2"))).andReturn("value2").once();
+    EasyMock.replay(lookupCache);
+    Assert.assertEquals(ImmutableMap.of("key1", "value1", "key2", "value2"), loadingLookup.applyAll(ImmutableSet.of("key1", "key2")));
+  }
+
+  @Test
+  public void testApplyAllWithNull()
+  {
+    Assert.assertEquals(Collections.emptyMap(), loadingLookup.applyAll(null));
+  }
+
+  @Test
+  public void testApplyAllWithCacheMissAndSubsequentCacheHit()
+  {
+    Map<String, String> map = ImmutableMap.of("key1", "value1", "key2", "value2");
+    List<String> keys = ImmutableList.copyOf(map.keySet());
+    EasyMock.expect(lookupCache.getIfPresent(EasyMock.eq("key1"))).andReturn(null).once();
+    EasyMock.expect(lookupCache.getIfPresent(EasyMock.eq("key2"))).andReturn(null).once();
+    EasyMock.expect(dataFetcher.fetch(EasyMock.eq(keys))).andReturn(map.entrySet()).once();
+    lookupCache.putAll(map);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.expect(lookupCache.getIfPresent("key1")).andReturn("value1").once();
+    EasyMock.expect(lookupCache.getIfPresent("key2")).andReturn("value2").once();
+    EasyMock.replay(lookupCache, dataFetcher);
+    Assert.assertEquals(map, loadingLookup.applyAll(keys));
+    Assert.assertEquals(map, loadingLookup.applyAll(keys));
     EasyMock.verify(lookupCache, dataFetcher);
   }
 

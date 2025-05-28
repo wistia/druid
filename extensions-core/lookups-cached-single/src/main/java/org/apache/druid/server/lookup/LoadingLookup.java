@@ -26,6 +26,7 @@ import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -84,6 +85,40 @@ public class LoadingLookup extends LookupExtractor
     this.loadingCache.putAll(Collections.singletonMap(key, val));
 
     return val;
+  }
+
+  @Override
+  public Map<String, String> applyAll(Iterable<String> keys)
+  {
+    if (keys == null) {
+      return Collections.emptyMap();
+    }
+
+    Map<String, String> map = new HashMap<>();
+    List<String> cacheMissKeys = new ArrayList<>();
+    for (String key : keys) {
+      final String val = this.loadingCache.getIfPresent(key);
+
+      if (val != null) {
+        map.put(key, val);
+      } else {
+        cacheMissKeys.add(key);
+      }
+    }
+
+    if (cacheMissKeys.isEmpty()) {
+      return map;
+    }
+
+    Iterable<Map.Entry<String, String>> fetchedEntries = this.dataFetcher.fetch(cacheMissKeys);
+    Map<String, String> fetchedMap = new HashMap<>();
+    for (Map.Entry<String, String> entry : fetchedEntries) {
+      fetchedMap.put(entry.getKey(), entry.getValue());
+    }
+    this.loadingCache.putAll(fetchedMap);
+    map.putAll(fetchedMap);
+
+    return map;
   }
 
   @Override
