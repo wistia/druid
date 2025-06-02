@@ -73,6 +73,7 @@ public class LoadingLookup extends LookupExtractor
 
     final String presentVal = this.loadingCache.getIfPresent(key);
     if (presentVal != null) {
+      LOGGER.info("Value in cache for key [%s] is [%s]", key, presentVal);
       return presentVal;
     }
 
@@ -81,6 +82,7 @@ public class LoadingLookup extends LookupExtractor
       return null;
     }
 
+    LOGGER.info("Value fetched for key [%s] is [%s]", key, val);
     this.loadingCache.putAll(Collections.singletonMap(key, val));
 
     return val;
