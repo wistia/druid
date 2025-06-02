@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.lookup.ext;
+package org.apache.druid.server.lookup;
 
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.module.SimpleModule;
