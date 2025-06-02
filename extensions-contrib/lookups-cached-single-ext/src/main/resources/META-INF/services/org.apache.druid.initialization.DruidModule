@@ -13,4 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-org.apache.druid.server.lookup.LoadingLookupWithNullCacheModule
+org.apache.druid.server.lookup.ext.LoadingLookupWithNullCacheModule

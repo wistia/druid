@@ -17,8 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.server.lookup;
+package org.apache.druid.server.lookup.ext;
 
+import org.apache.druid.server.lookup.DataFetcher;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
 import org.apache.druid.testing.InitializedNullHandlingTest;
 import org.easymock.EasyMock;

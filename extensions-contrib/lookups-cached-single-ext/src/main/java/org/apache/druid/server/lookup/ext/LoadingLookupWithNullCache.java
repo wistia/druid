@@ -17,9 +17,11 @@
  * under the License.
  */
 
-package org.apache.druid.server.lookup;
+package org.apache.druid.server.lookup.ext;
 
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.server.lookup.DataFetcher;
+import org.apache.druid.server.lookup.LoadingLookup;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
 
 import javax.annotation.Nullable;

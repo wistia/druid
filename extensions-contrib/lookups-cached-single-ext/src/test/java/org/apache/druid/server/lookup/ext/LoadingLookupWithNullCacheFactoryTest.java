@@ -17,11 +17,12 @@
  * under the License.
  */
 
-package org.apache.druid.server.lookup;
+package org.apache.druid.server.lookup.ext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.query.lookup.LookupExtractorFactory;
 import org.apache.druid.segment.TestHelper;
+import org.apache.druid.server.lookup.DataFetcher;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
 import org.apache.druid.server.lookup.cache.loading.OffHeapLoadingCache;
 import org.apache.druid.server.lookup.cache.loading.OnHeapLoadingCache;

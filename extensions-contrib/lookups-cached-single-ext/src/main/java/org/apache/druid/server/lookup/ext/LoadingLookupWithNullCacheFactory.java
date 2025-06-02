@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.lookup;
+package org.apache.druid.server.lookup.ext;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -25,6 +25,7 @@ import com.google.common.base.Preconditions;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.lookup.LookupExtractorFactory;
 import org.apache.druid.query.lookup.LookupIntrospectHandler;
+import org.apache.druid.server.lookup.DataFetcher;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
 
 import javax.annotation.Nullable;
