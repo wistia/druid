@@ -20,6 +20,7 @@
 package org.apache.druid.server.lookup;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.api.client.util.Lists;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.apache.druid.java.util.common.ISE;
@@ -193,8 +194,9 @@ public class PollingLookupTest extends InitializedNullHandlingTest
   @Test
   public void testBulkApply()
   {
-    Map<String, String> map = pollingLookup.applyAll(FIRST_LOOKUP_MAP.keySet());
-    Assert.assertEquals(FIRST_LOOKUP_MAP, map);
+    List<Map.Entry<String, String>> expected = Lists.newArrayList(FIRST_LOOKUP_MAP.entrySet());
+    List<Map.Entry<String, String>> results = pollingLookup.applyAll(FIRST_LOOKUP_MAP.keySet());
+    Assert.assertEquals(expected, results);
   }
 
   @Test
