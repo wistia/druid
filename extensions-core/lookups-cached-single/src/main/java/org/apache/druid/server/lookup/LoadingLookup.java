@@ -19,11 +19,13 @@
 
 package org.apache.druid.server.lookup;
 
-
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.server.lookup.cache.loading.LoadingCache;
+import com.google.common.collect.Lists;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -31,9 +33,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
 
 /**
  * Loading  lookup will load the key\value pair upon request on the key it self, the general algorithm is load key if absent.
@@ -84,6 +88,32 @@ public class LoadingLookup extends LookupExtractor
     this.loadingCache.putAll(Collections.singletonMap(key, val));
 
     return val;
+  }
+
+  @Override
+  public List<String> applyAll(Iterable<String> keys)
+  {
+    if (keys == null) {
+      return Collections.emptyList();
+    }
+
+    final Set<String> keySet = Sets.newHashSet(keys);
+
+    if (keySet.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    final Set<String> presentKeys = this.loadingCache.getAllPresent(keySet).keySet();
+    keySet.removeAll(presentKeys);
+
+    final Iterable<Map.Entry<String, String>> dataEntries = this.dataFetcher.fetch(keySet);
+    final Map<String, String> keyVals = new HashMap<>();
+    for (Map.Entry<String, String> keyVal : dataEntries) {
+      keyVals.put(keyVal.getKey(), keyVal.getValue());
+    }
+    this.loadingCache.putAll(keyVals);
+
+    return Lists.newArrayList(keys).stream().map(this.loadingCache::getIfPresent).collect(Collectors.toList());
   }
 
   @Override

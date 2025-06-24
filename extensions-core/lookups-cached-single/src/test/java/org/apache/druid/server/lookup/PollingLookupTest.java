@@ -194,8 +194,8 @@ public class PollingLookupTest extends InitializedNullHandlingTest
   @Test
   public void testBulkApply()
   {
-    List<Map.Entry<String, String>> expected = Lists.newArrayList(FIRST_LOOKUP_MAP.entrySet());
-    List<Map.Entry<String, String>> results = pollingLookup.applyAll(FIRST_LOOKUP_MAP.keySet());
+    List<String> expected = Lists.newArrayList(FIRST_LOOKUP_MAP.values());
+    List<String> results = pollingLookup.applyAll(FIRST_LOOKUP_MAP.keySet());
     Assert.assertEquals(expected, results);
   }
 

@@ -26,7 +26,12 @@ import com.google.common.collect.Iterators;
 import org.apache.druid.query.extraction.MapLookupExtractor;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
@@ -52,14 +57,14 @@ public abstract class LookupExtractor
    * User can override this method if there is a better way to perform bulk lookup
    */
 
-  public List<Map.Entry<String, String>> applyAll(Iterable<String> keys)
+  public List<String> applyAll(Iterable<String> keys)
   {
     if (keys == null) {
       return Collections.emptyList();
     }
-    List<Map.Entry<String, String>> results = new ArrayList<>();
+    List<String> results = new ArrayList<>();
     for (String key : keys) {
-      results.add(Map.entry(key, apply(key)));
+      results.add(apply(key));
     }
     return results;
   }

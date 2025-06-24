@@ -33,7 +33,9 @@ import org.junit.rules.ExpectedException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
@@ -157,5 +159,178 @@ public class LoadingLookupTest extends InitializedNullHandlingTest
     EasyMock.replay(dataFetcher);
     Assert.assertEquals(loadingLookup.asMap(), fetchedData);
     EasyMock.verify(dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithNullInput()
+  {
+    EasyMock.replay(lookupCache, dataFetcher);
+    Assert.assertEquals(Collections.emptyList(), loadingLookup.applyAll(null));
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithEmptyCollection()
+  {
+    EasyMock.replay(lookupCache, dataFetcher);
+    Assert.assertEquals(Collections.emptyList(), loadingLookup.applyAll(Collections.emptyList()));
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithEmptyIterable()
+  {
+    EasyMock.replay(lookupCache, dataFetcher);
+    Assert.assertEquals(Collections.emptyList(), loadingLookup.applyAll(Collections.emptySet()));
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithAllCacheHits()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2", "key3");
+    Map<String, String> cachedValues = ImmutableMap.of("key1", "value1", "key2", "value2", "key3", "value3");
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1", "value2", "value3"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithAllCacheMisses()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2");
+    Map<String, String> cachedValues = Collections.emptyMap();
+    Map<String, String> fetchedValues = ImmutableMap.of("key1", "value1", "key2", "value2");
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(keys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1", "value2"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithMixedCacheHitsAndMisses()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2", "key3", "key4");
+    Map<String, String> cachedValues = ImmutableMap.of("key1", "value1", "key3", "value3");
+    Set<String> missingKeys = ImmutableSet.of("key2", "key4");
+    Map<String, String> fetchedValues = ImmutableMap.of("key2", "value2", "key4", "value4");
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(missingKeys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1", "value2", "value3", "value4"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithSomeNullValues()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2", "key3");
+    Map<String, String> cachedValues = ImmutableMap.of("key1", "value1");
+    Set<String> missingKeys = ImmutableSet.of("key2", "key3");
+    Map<String, String> fetchedValues = ImmutableMap.of("key2", null, "key3", "value3");
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(missingKeys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1", null, "value3"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithEmptyFetchedResults()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2");
+    Map<String, String> cachedValues = Collections.emptyMap();
+    Map<String, String> fetchedValues = Collections.emptyMap();
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(keys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList(null, null), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithDuplicateKeys()
+  {
+    List<String> keys = Arrays.asList("key1", "key2", "key1", "key3");
+    Set<String> uniqueKeys = ImmutableSet.of("key1", "key2", "key3");
+    Map<String, String> cachedValues = ImmutableMap.of("key1", "value1");
+    Set<String> missingKeys = ImmutableSet.of("key2", "key3");
+    Map<String, String> fetchedValues = ImmutableMap.of("key2", "value2", "key3", "value3");
+
+    EasyMock.expect(lookupCache.getAllPresent(uniqueKeys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(missingKeys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1", "value2", "value1", "value3"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithSingleKey()
+  {
+    Set<String> keys = ImmutableSet.of("key1");
+    Map<String, String> cachedValues = Collections.emptyMap();
+    Map<String, String> fetchedValues = ImmutableMap.of("key1", "value1");
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(keys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    Assert.assertEquals(Arrays.asList("value1"), result);
+    EasyMock.verify(lookupCache, dataFetcher);
+  }
+
+  @Test
+  public void testApplyAllWithLargeKeySet()
+  {
+    Set<String> keys = ImmutableSet.of("key1", "key2", "key3", "key4", "key5", "key6", "key7", "key8", "key9", "key10");
+    Map<String, String> cachedValues = ImmutableMap.of("key1", "value1", "key5", "value5", "key10", "value10");
+    Set<String> missingKeys = ImmutableSet.of("key2", "key3", "key4", "key6", "key7", "key8", "key9");
+    Map<String, String> fetchedValues = ImmutableMap.of(
+        "key2", "value2", "key3", "value3", "key4", "value4",
+        "key6", "value6", "key7", "value7", "key8", "value8", "key9", "value9"
+    );
+
+    EasyMock.expect(lookupCache.getAllPresent(keys)).andReturn(cachedValues).once();
+    EasyMock.expect(dataFetcher.fetch(missingKeys)).andReturn(fetchedValues.entrySet()).once();
+    lookupCache.putAll(fetchedValues);
+    EasyMock.expectLastCall().andVoid();
+    EasyMock.replay(lookupCache, dataFetcher);
+
+    List<String> result = loadingLookup.applyAll(keys);
+    List<String> expected = Arrays.asList("value1", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10");
+    Assert.assertEquals(expected, result);
+    EasyMock.verify(lookupCache, dataFetcher);
   }
 }
