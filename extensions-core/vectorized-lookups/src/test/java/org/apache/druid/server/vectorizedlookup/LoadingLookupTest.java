@@ -67,7 +67,7 @@ public class LoadingLookupTest extends InitializedNullHandlingTest
   @Test
   public void testApply()
   {
-    EasyMock.expect(lookupCache.getIfPresent(EasyMock.eq("key"))).andReturn("value").once();
+    EasyMock.expect(lookupCache.getAllPresent(EasyMock.eq(ImmutableSet.of("key")))).andReturn(ImmutableMap.of("key", "value")).once();
     EasyMock.replay(lookupCache);
     Assert.assertEquals(ImmutableMap.of("key", "value"), loadingLookup.applyAll(ImmutableSet.of("key")));
     EasyMock.verify(lookupCache);

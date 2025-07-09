@@ -174,7 +174,7 @@ public class PollingLookup extends LookupExtractor
   @Override
   public byte[] getCacheKey()
   {
-    return LookupExtractionModule.getRandomCacheKey();
+    return VectorizedLookupExtractionModule.getRandomCacheKey();
   }
 
   private Runnable pollAndSwap()

@@ -19,8 +19,8 @@
 
 package org.apache.druid.server.vectorizedlookup;
 
-
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.server.vectorizedlookup.cache.loading.LoadingCache;
@@ -31,14 +31,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Loading  lookup will load the key\value pair upon request on the key it self, the general algorithm is load key if absent.
- * Once the key/value  pair is loaded eviction will occur according to the cache eviction policy.
- * This module comes with two loading cache implementations, the first {@link org.apache.druid.server.vectorizedlookup.cache.loading.OnHeapLoadingCache}is onheap backed by a Guava cache implementation, the second {@link org.apache.druid.server.vectorizedlookup.cache.loading.OffHeapLoadingCache}is MapDB offheap implementation.
+ * Loading lookup will load the key\value pair upon request on the key it self,
+ * the general algorithm is load key if absent.
+ * Once the key/value pair is loaded eviction will occur according to the cache
+ * eviction policy.
+ * This module comes with two loading cache implementations, the first
+ * {@link org.apache.druid.server.vectorizedlookup.cache.loading.OnHeapLoadingCache}is
+ * onheap backed by a Guava cache implementation, the second
+ * {@link org.apache.druid.server.vectorizedlookup.cache.loading.OffHeapLoadingCache}is
+ * MapDB offheap implementation.
  * Both implementations offer various eviction strategies.
  */
 public class LoadingLookup extends LookupExtractor
@@ -54,15 +61,13 @@ public class LoadingLookup extends LookupExtractor
   public LoadingLookup(
       DataFetcher dataFetcher,
       LoadingCache<String, String> loadingCache,
-      LoadingCache<String, List<String>> reverseLoadingCache
-  )
+      LoadingCache<String, List<String>> reverseLoadingCache)
   {
     this.dataFetcher = Preconditions.checkNotNull(dataFetcher, "lookup must have a DataFetcher");
     this.loadingCache = Preconditions.checkNotNull(loadingCache, "loading lookup need a cache");
     this.reverseLoadingCache = Preconditions.checkNotNull(reverseLoadingCache, "loading lookup need reverse cache");
     this.isOpen = new AtomicBoolean(true);
   }
-
 
   @Override
   public String apply(@Nullable final String key)
@@ -84,6 +89,31 @@ public class LoadingLookup extends LookupExtractor
     this.loadingCache.putAll(Collections.singletonMap(key, val));
 
     return val;
+  }
+
+  @Override
+  public Map<String, String> applyAll(Iterable<String> keys)
+  {
+    Set<String> keySet = Sets.newHashSet(keys);
+    if (keySet.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<String, String> results = loadingCache.getAllPresent(keySet);
+    keySet.removeAll(results.keySet());
+    if (keySet.isEmpty()) {
+      return results;
+    }
+
+    Iterable<Map.Entry<String, String>> fetchedResults = dataFetcher.fetch(keySet);
+    Map<String, String> fetchedResultsMap = new HashMap<>();
+    for (Map.Entry<String, String> entry : fetchedResults) {
+      fetchedResultsMap.put(entry.getKey(), entry.getValue());
+    }
+    loadingCache.putAll(fetchedResultsMap);
+    results.putAll(fetchedResultsMap);
+
+    return results;
   }
 
   @Override
@@ -114,14 +144,14 @@ public class LoadingLookup extends LookupExtractor
   {
     final Map<String, String> map = new HashMap<>();
     Optional.ofNullable(this.dataFetcher.fetchAll())
-            .ifPresent(data -> data.forEach(entry -> map.put(entry.getKey(), entry.getValue())));
+        .ifPresent(data -> data.forEach(entry -> map.put(entry.getKey(), entry.getValue())));
     return map;
   }
 
   @Override
   public byte[] getCacheKey()
   {
-    return LookupExtractionModule.getRandomCacheKey();
+    return VectorizedLookupExtractionModule.getRandomCacheKey();
   }
 
   public synchronized void close()
@@ -160,8 +190,8 @@ public class LoadingLookup extends LookupExtractor
   public String toString()
   {
     return "LoadingLookup{" +
-           "dataFetcher=" + dataFetcher +
-           ", id='" + id + '\'' +
-           '}';
+        "dataFetcher=" + dataFetcher +
+        ", id='" + id + '\'' +
+        '}';
   }
 }

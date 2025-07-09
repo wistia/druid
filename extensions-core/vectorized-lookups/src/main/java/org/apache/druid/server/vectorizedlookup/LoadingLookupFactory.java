@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@JsonTypeName("loadingLookup")
+@JsonTypeName("vectorizedLoadingLookup")
 public class LoadingLookupFactory implements LookupExtractorFactory
 {
   private static final Logger LOGGER = new Logger(LoadingLookupFactory.class);

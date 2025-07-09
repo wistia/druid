@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@JsonTypeName("pollingLookup")
+@JsonTypeName("vectorizedPollingLookup")
 public class PollingLookupFactory implements LookupExtractorFactory
 {
   private static final Logger LOGGER = new Logger(PollingLookupFactory.class);

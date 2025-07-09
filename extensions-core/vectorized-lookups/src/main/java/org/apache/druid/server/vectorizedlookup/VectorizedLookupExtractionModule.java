@@ -23,15 +23,15 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import com.google.inject.multibindings.Multibinder;
+import org.apache.druid.guice.ExpressionModule;
 import org.apache.druid.initialization.DruidModule;
 import org.apache.druid.java.util.common.StringUtils;
-import org.apache.druid.math.expr.ExprMacroTable;
+import org.apache.druid.sql.guice.SqlBindings;
 
 import java.util.List;
 import java.util.UUID;
 
-public class LookupExtractionModule implements DruidModule
+public class VectorizedLookupExtractionModule implements DruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()
@@ -52,10 +52,10 @@ public class LookupExtractionModule implements DruidModule
   @Override
   public void configure(Binder binder)
   {
-    // Register the LookupExprMacro for expression functions
-    Multibinder.newSetBinder(binder, ExprMacroTable.ExprMacro.class)
-               .addBinding()
-               .to(LookupExprMacro.class);
+    ExpressionModule.addExprMacro(binder, LookupExprMacro.class);
+
+    // Register the VECTORIZED_LOOKUP SQL function
+    SqlBindings.addOperatorConversion(binder, VectorizedLookupOperatorConversion.class);
   }
 
   public static byte[] getRandomCacheKey()
