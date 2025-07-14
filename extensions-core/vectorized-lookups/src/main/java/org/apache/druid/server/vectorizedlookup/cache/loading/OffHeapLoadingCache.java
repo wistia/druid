@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.logger.Logger;
 import org.mapdb.Bind;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -38,7 +37,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class OffHeapLoadingCache<K, V> implements LoadingCache<K, V>
 {
-  private static final Logger log = new Logger(OffHeapLoadingCache.class);
   private static final DB DB = DBMaker.newMemoryDirectDB().transactionDisable().closeOnJvmShutdown().make();
 
   private final HTreeMap<K, V> cache;
@@ -93,23 +91,17 @@ public class OffHeapLoadingCache<K, V> implements LoadingCache<K, V>
                    .expireAfterAccess(this.expireAfterAccess, TimeUnit.MILLISECONDS)
                    .expireMaxSize(this.maxEntriesSize)
                    .make();
-
-    try {
-      cache.modificationListenerAdd(new Bind.MapListener<>()
+    cache.modificationListenerAdd(new Bind.MapListener<>()
+    {
+      @Override
+      public void update(K key, V oldVal, V newVal)
       {
-        @Override
-        public void update(K key, V oldVal, V newVal)
-        {
-          if (oldVal != null && newVal == null) {
-            // eviction or remove call
-            evictionCount.getAndIncrement();
-          }
+        if (oldVal != null && newVal == null) {
+          // eviction or remove call
+          evictionCount.getAndIncrement();
         }
-      });
-    } catch (NoClassDefFoundError e) {
-      // Log warning and continue without eviction counting
-      log.warn("Bind.MapListener not available, eviction counting disabled");
-    }
+      }
+    });
     this.closed.set(false);
   }
 
