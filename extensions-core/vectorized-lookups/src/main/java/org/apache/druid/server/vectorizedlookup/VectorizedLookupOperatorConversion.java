@@ -34,6 +34,8 @@ import org.apache.druid.sql.calcite.expression.DruidExpression;
 import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.util.List;
 
@@ -50,6 +52,7 @@ public class VectorizedLookupOperatorConversion implements SqlOperatorConversion
       .build();
 
   private final LookupExtractorFactoryContainerProvider lookupExtractorFactoryContainerProvider;
+  private static final Logger LOGGER = new Logger(VectorizedLookupOperatorConversion.class);
 
   @Inject
   public VectorizedLookupOperatorConversion(final LookupExtractorFactoryContainerProvider lookupExtractorFactoryContainerProvider)
@@ -70,6 +73,8 @@ public class VectorizedLookupOperatorConversion implements SqlOperatorConversion
       final RexNode rexNode
   )
   {
+    LOGGER.info("Processing VECTORIZED_LOOKUP SQL function\nStacktrace:\n%s",
+        ExceptionUtils.getStackTrace(new Exception()));
     return OperatorConversions.convertDirectCallWithExtraction(
         plannerContext,
         rowSignature,
@@ -81,10 +86,14 @@ public class VectorizedLookupOperatorConversion implements SqlOperatorConversion
           final String replaceMissingValueWith = getReplaceMissingValueWith(inputExpressions, plannerContext);
           final String lookupName = (String) lookupNameExpr.getLiteralValue();
 
+          LOGGER.info("VECTORIZED_LOOKUP SQL function details: lookupName=%s, replaceMissingValueWith=%s",
+              lookupName, replaceMissingValueWith);
+
           // Add the lookup name to the set of lookups to selectively load.
           plannerContext.addLookupToLoad(lookupExtractorFactoryContainerProvider.getCanonicalLookupName(lookupName));
 
           if (arg.isSimpleExtraction() && lookupNameExpr.isLiteral()) {
+            LOGGER.info("VECTORIZED_LOOKUP: Using simple extraction with literal lookup name");
             return arg.getSimpleExtraction().cascade(
                 new RegisteredLookupExtractionFn(
                     lookupExtractorFactoryContainerProvider,
@@ -98,6 +107,8 @@ public class VectorizedLookupOperatorConversion implements SqlOperatorConversion
                 )
             );
           } else {
+            LOGGER.info("VECTORIZED_LOOKUP: Not using simple extraction - arg.isSimpleExtraction=%s, lookupNameExpr.isLiteral=%s",
+                arg.isSimpleExtraction(), lookupNameExpr.isLiteral());
             return null;
           }
         }

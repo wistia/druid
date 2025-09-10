@@ -76,17 +76,32 @@ public class LoadingLookup extends LookupExtractor
       return null;
     }
 
+    long cacheStartTime = System.currentTimeMillis();
     final String presentVal = this.loadingCache.getIfPresent(key);
+    long cacheEndTime = System.currentTimeMillis();
+
     if (presentVal != null) {
+      LOGGER.info("Unvectorized - Cache hit for key '%s' took %dms", key, cacheEndTime - cacheStartTime);
       return presentVal;
     }
 
+    LOGGER.info("Unvectorized - Cache miss for key '%s', cache lookup took %dms", key, cacheEndTime - cacheStartTime);
+
+    long dbStartTime = System.currentTimeMillis();
     final String val = this.dataFetcher.fetch(key);
+    long dbEndTime = System.currentTimeMillis();
+
     if (val == null) {
+      LOGGER.info("Unvectorized - Database query for key '%s' took %dms, returned null", key, dbEndTime - dbStartTime);
       return null;
     }
 
+    long putStartTime = System.currentTimeMillis();
     this.loadingCache.putAll(Collections.singletonMap(key, val));
+    long putEndTime = System.currentTimeMillis();
+
+    LOGGER.info("Unvectorized - Database query for key '%s' took %dms, cache put took %dms",
+        key, dbEndTime - dbStartTime, putEndTime - putStartTime);
 
     return val;
   }
@@ -94,24 +109,50 @@ public class LoadingLookup extends LookupExtractor
   @Override
   public Map<String, String> applyAll(Iterable<String> keys)
   {
+    long totalStartTime = System.currentTimeMillis();
+
     Set<String> keySet = Sets.newHashSet(keys);
+    keySet.remove(null);
     if (keySet.isEmpty()) {
       return Collections.emptyMap();
     }
 
-    Map<String, String> results = loadingCache.getAllPresent(keySet);
+    long cacheStartTime = System.currentTimeMillis();
+    Map<String, String> results = new HashMap<>(loadingCache.getAllPresent(keySet));
+    long cacheEndTime = System.currentTimeMillis();
+
+    int cacheHits = results.size();
+    int cacheMisses = keySet.size() - cacheHits;
+
+    LOGGER.info("Vectorized - Cache lookup for %d keys: %d hits, %d misses, took %dms",
+        keySet.size(), cacheHits, cacheMisses, cacheEndTime - cacheStartTime);
+
     keySet.removeAll(results.keySet());
     if (keySet.isEmpty()) {
+      long totalEndTime = System.currentTimeMillis();
+      LOGGER.info("Vectorized - All keys found in cache, total time: %dms", totalEndTime - totalStartTime);
       return results;
     }
 
+    long dbStartTime = System.currentTimeMillis();
     Iterable<Map.Entry<String, String>> fetchedResults = dataFetcher.fetch(keySet);
+    long dbEndTime = System.currentTimeMillis();
+
     Map<String, String> fetchedResultsMap = new HashMap<>();
     for (Map.Entry<String, String> entry : fetchedResults) {
       fetchedResultsMap.put(entry.getKey(), entry.getValue());
     }
+
+    long putStartTime = System.currentTimeMillis();
     loadingCache.putAll(fetchedResultsMap);
+    long putEndTime = System.currentTimeMillis();
+
     results.putAll(fetchedResultsMap);
+
+    long totalEndTime = System.currentTimeMillis();
+
+    LOGGER.info("Vectorized - Database query for %d keys took %dms, returned %d results, cache put took %dms, total time: %dms",
+        keySet.size(), dbEndTime - dbStartTime, fetchedResultsMap.size(), putEndTime - putStartTime, totalEndTime - totalStartTime);
 
     return results;
   }

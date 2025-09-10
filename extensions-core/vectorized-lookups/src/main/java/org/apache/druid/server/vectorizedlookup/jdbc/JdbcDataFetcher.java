@@ -46,6 +46,27 @@ import java.util.function.Supplier;
 public class JdbcDataFetcher implements DataFetcher<String, String>
 {
   private static final Logger LOGGER = new Logger(JdbcDataFetcher.class);
+
+  /**
+   * Escape a SQL identifier (table or column name) to prevent SQL injection.
+   * This is a simple implementation that wraps the identifier in double quotes.
+   * For production use, consider using a more robust SQL escaping library.
+   */
+  private String escapeIdentifier(String identifier) {
+    if (identifier == null || identifier.trim().isEmpty()) {
+      throw new IllegalArgumentException("Identifier cannot be null or empty");
+    }
+    // Simple escaping: wrap in double quotes and escape any existing quotes
+    return "\"" + StringUtils.replace(identifier, "\"", "\"\"") + "\"";
+  }
+
+  private String escapeSqlValue(String value) {
+    if (value == null) {
+      return "NULL";
+    }
+    // Escape single quotes by doubling them
+    return StringUtils.replace(value, "'", "''");
+  }
   private static final int DEFAULT_STREAMING_FETCH_SIZE = 1000;
 
   @JsonProperty
@@ -106,6 +127,8 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
         connectorConfig.getUser(),
         connectorConfig.getPassword()
     );
+    LOGGER.info("DBI object created successfully for table [%s]", table);
+
     dbi.registerMapper(new KeyValueResultSetMapper(keyColumn, valueColumn));
   }
 
@@ -134,6 +157,7 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
   @Override
   public Iterable<Map.Entry<String, String>> fetchAll()
   {
+    LOGGER.info("Fetching all key-value pairs from table [%s]", table);
     return inReadOnlyTransaction((handle, status) -> handle.createQuery(fetchAllQuery)
                                                            .setFetchSize(streamingFetchSize)
                                                            .map(new KeyValueResultSetMapper(keyColumn, valueColumn))
@@ -143,6 +167,7 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
   @Override
   public String fetch(final String key)
   {
+    LOGGER.info("Fetching value for key [%s] from table [%s]", key, table);
     List<String> pairs = inReadOnlyTransaction(
         (handle, status) -> handle.createQuery(fetchQuery)
                                   .bind("val", key)
@@ -150,8 +175,10 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
                                   .list()
     );
     if (pairs.isEmpty()) {
+      LOGGER.info("No value found for key [%s] in table [%s]", key, table);
       return null;
     }
+    LOGGER.info("Found value for key [%s] in table [%s]", key, table);
     return pairs.get(0);
   }
 
@@ -160,8 +187,30 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
   {
     return runWithMissingJdbcJarHandler(
         () -> {
-          QueryKeys queryKeys = dbi.onDemand(QueryKeys.class);
-          return queryKeys.findNamesForIds(Lists.newArrayList(keys), table, keyColumn, valueColumn);
+          // Convert Iterable to List for easier handling
+          List<String> keysList = Lists.newArrayList(keys);
+
+          // Build SQL with keys directly embedded and properly escaped
+          StringBuilder inClause = new StringBuilder();
+          for (int i = 0; i < keysList.size(); i++) {
+            if (i > 0) inClause.append(", ");
+            // Escape the key value for SQL injection protection
+            inClause.append("'").append(escapeSqlValue(keysList.get(i))).append("'");
+          }
+
+          String sql = StringUtils.format(
+              "SELECT %s, %s FROM %s WHERE %s IN (%s)",
+              escapeIdentifier(keyColumn),
+              escapeIdentifier(valueColumn),
+              escapeIdentifier(table),
+              escapeIdentifier(keyColumn),
+              inClause.toString()
+          );
+
+          // Execute the SQL using the connection pool like other methods
+          return inReadOnlyTransaction((handle, status) -> handle.createQuery(sql)
+              .map(new KeyValueResultSetMapper(keyColumn, valueColumn))
+              .list());
         }
     );
   }
@@ -169,6 +218,7 @@ public class JdbcDataFetcher implements DataFetcher<String, String>
   @Override
   public List<String> reverseFetchKeys(final String value)
   {
+    LOGGER.info("Reverse fetching keys for value [%s] from table [%s]", value, table);
     return inReadOnlyTransaction((handle, status) -> handle.createQuery(reverseFetchQuery)
                                                            .bind("val", value)
                                                            .map(StringMapper.FIRST)

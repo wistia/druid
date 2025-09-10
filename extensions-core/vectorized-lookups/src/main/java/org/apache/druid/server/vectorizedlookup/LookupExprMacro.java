@@ -32,6 +32,7 @@ import org.apache.druid.query.cache.CacheKeyBuilder;
 import org.apache.druid.query.lookup.LookupExtractor;
 import org.apache.druid.query.lookup.LookupExtractorFactoryContainerProvider;
 import org.apache.druid.query.lookup.RegisteredLookupExtractionFn;
+import org.apache.druid.java.util.common.logger.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 public class LookupExprMacro implements ExprMacroTable.ExprMacro
 {
   private static final String FN_NAME = "vectorized_lookup";
+  private static final Logger LOGGER = new Logger(LookupExprMacro.class);
   private final LookupExtractorFactoryContainerProvider lookupExtractorFactoryContainerProvider;
 
   @Inject
